@@ -1,0 +1,13 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GNSS基準点網図</title><style>body{font:14px system-ui;margin:15px}button{padding:8px;margin:5px}svg{width:100%;height:auto;border:1px solid #bbb;background:#fff}@media print{button{display:none}body{margin:0}@page{size:A3 landscape;margin:10mm}}</style></head><body><button onclick="print()">印刷・PDF保存</button><h2 id="title">基準点網図</h2><svg id="map" viewBox="0 0 1100 730" xmlns="http://www.w3.org/2000/svg"></svg><div id="legend"></div><script src="storage.js"></script><script>
+const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&quot;'}[x]));
+(async()=>{const pid=new URLSearchParams(location.search).get('id'),r=await fetch('/api/project/'+pid+'/state'),s=await r.json(),pts=[];
+document.getElementById('title').textContent='基準点網図　'+s.project.name;
+s.known_points.forEach(k=>pts.push({name:k.name,x:+k.result_x,y:+k.result_y,known:true}));
+s.new_points.forEach(n=>{const g=s.groups.find(g=>g.id===n.group_id),a=g?.observations.find(o=>o.id===n.main1_id),b=g?.observations.find(o=>o.id===n.main2_id);if(a&&b)pts.push({name:n.name,x:(a.x+b.x)/2,y:(a.y+b.y)/2,known:false})});
+const svg=document.getElementById('map');if(!pts.length){svg.innerHTML='<text x="150" y="350">表示できる座標がありません</text>';return}
+const minx=Math.min(...pts.map(p=>p.x)),maxx=Math.max(...pts.map(p=>p.x)),miny=Math.min(...pts.map(p=>p.y)),maxy=Math.max(...pts.map(p=>p.y)),dx=Math.max(1,maxx-minx),dy=Math.max(1,maxy-miny),sc=Math.min(960/dy,580/dx);
+const at=p=>[550+(p.y-(miny+maxy)/2)*sc,365-((p.x-(minx+maxx)/2)*sc)];
+let lines='',labels='';const np=pts.filter(p=>!p.known);for(let i=1;i<np.length;i++){const a=at(np[i-1]),b=at(np[i]),d=Math.hypot(np[i].x-np[i-1].x,np[i].y-np[i-1].y);lines+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="#555" stroke-width="1.4"/><text x="'+((a[0]+b[0])/2)+'" y="'+((a[1]+b[1])/2-8)+'" font-size="12">'+d.toFixed(3)+'m</text>'}
+pts.forEach(p=>{let q=at(p);labels+='<circle cx="'+q[0]+'" cy="'+q[1]+'" r="5" fill="'+(p.known?'#205caa':'#ba3d22')+'"/><text x="'+(q[0]+9)+'" y="'+(q[1]-8)+'" font-size="15">'+esc(p.name)+'</text>'});svg.innerHTML=lines+labels;
+document.getElementById('legend').textContent='青：既知点　赤：新点　距離は採用座標間。用紙A3横。';
+})().catch(e=>alert(e.message));</script></body></html>
